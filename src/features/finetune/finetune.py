@@ -13,18 +13,19 @@ from transformers import (
 from peft import LoraConfig, PeftModel
 from trl import SFTTrainer
 from src.api.schemas import TrainingRequest
+from src.logging import logger
 
 
 
 class FineTune:
     def __init__(self,
                  finetune_req:TrainingRequest) -> None:
+        logger.info(f">>>>>> FineTuner Initializing with {finetune_req} <<<<<<")
         self.model_name = finetune_req.model_name
         self.dataset_name = finetune_req.dataset_name
         self.new_model = finetune_req.new_model
         self.config = finetune_req.config
-
-
+        
     def load_bits_and_bytes_config(self):
         compute_dtype = getattr(torch, self.config.bnb_4bit_compute_dtype)
         bnb_config = BitsAndBytesConfig(
@@ -34,7 +35,6 @@ class FineTune:
             bnb_4bit_use_double_quant=self.config.use_nested_quant,
         )
         return bnb_config,compute_dtype
-
 
     def set_training_arguments(self):
         training_arguments = TrainingArguments(
@@ -68,23 +68,32 @@ class FineTune:
         )
         return peft_config
     
-    def push_to_hub(self,model,tokenizer):
+    def push_to_hub(self,model,tokenizer,auth_token:str,new_model_name:str,namespace:str):
 
-        import locale
-        locale.getpreferredencoding = lambda: "UTF-8"
-        model.push_to_hub("vksingh8/Llama-2-7b-chat-finetune", check_pr=True)
-        tokenizer.push_to_hub("vksingh8/Llama-2-7b-chat-finetune",check_pr=True)
+        try:
+            import locale
+            locale.getpreferredencoding = lambda: "UTF-8"
+            directory = namespace + "/" + new_model_name
+            model.push_to_hub(directory, check_pr=True, token=auth_token)
+            tokenizer.push_to_hub(directory,check_pr=True, token=auth_token)
+        except Exception as e:
+            print(f"An error occurred while pushing to the repository: {str(e)}")
 
-
-
-
-
-    def fine_tune(self):
+    def train(self):
         # Load dataset (you can process it here)
+        logger.info(f">>>>>> Stage Loading DataSet started <<<<<<")
         dataset = load_dataset(self.dataset_name, split="train")
+        logger.info(f">>>>>> Stage Loading DataSet ended <<<<<<")
+
+        input()
 
         # Load tokenizer and model with QLoRA configuration
+
+        logger.info(f">>>>>> Stage Load tokenizer and model with QLoRA configuration started <<<<<<")
         bnb_config,compute_dtype = self.load_bits_and_bytes_config()
+        logger.info(f">>>>>> Stage Load tokenizer and model with QLoRA configuration bnb_config: {bnb_config}, compute_dtype: {compute_dtype}   ended <<<<<<")
+
+        input()
 
         # Check GPU compatibility with bfloat16
         if compute_dtype == torch.float16 and self.config.use_4bit:
@@ -94,7 +103,10 @@ class FineTune:
                 print("Your GPU supports bfloat16: accelerate training with bf16=True")
                 print("=" * 80)
 
+        input()
+
         # Load base model
+        logger.info(f">>>>>> Load Base Model Started <<<<<<")
         model = AutoModelForCausalLM.from_pretrained(
             self.model_name,
             quantization_config=bnb_config,
@@ -107,14 +119,27 @@ class FineTune:
         tokenizer = AutoTokenizer.from_pretrained(self.model_name, trust_remote_code=True)
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.padding_side = "right" # Fix weird overflow issue with fp16 training
+        logger.info(f">>>>>> Load Base Model Ended <<<<<<")
+
+
+        input()
 
         # Load LoRA configuration
+        logger.info(f">>>>>> Load LoRA configuration Started <<<<<<")
         peft_config = self.load_lora_config()
+        logger.info(f">>>>>> Load LoRA configuration: {peft_config} ended <<<<<<")
+
+        input()
 
         # Set training parameters
+        logger.info(f">>>>>> Set training parameters Started <<<<<<")
         training_arguments = self.set_training_arguments()
+        logger.info(f">>>>>> Set training parameters Started <<<<<<")
 
         # Set supervised fine-tuning parameters
+        input()
+
+        logger.info(f">>>>>> Initialize SFTTrainer Started <<<<<<")
         trainer = SFTTrainer(
             model=model,
             train_dataset=dataset,
@@ -125,12 +150,20 @@ class FineTune:
             args=training_arguments,
             packing=self.config.packing,
         )
+        logger.info(f">>>>>> Initialize SFTTrainer: {trainer} ended <<<<<<")
+        input()
+
 
         # Train model
+        logger.info(f">>>>>> Train Model Started <<<<<<")
         trainer.train()
+        logger.info(f">>>>>> Train Model Ended <<<<<<")
+
+        input()
 
         # Save trained model
-        trainer.model.save_pretrained(os.path.join("artifacts/model_trainer/final_model"),self.new_model)
+        logger.info(f">>>>>> Saving Trained Model Started <<<<<<")
+        trainer.model.save_pretrained(os.path.join("artifacts/model_trainer/final_model",self.new_model))
         # Reload model in FP16 and merge it with LoRA weights
         base_model = AutoModelForCausalLM.from_pretrained(
             self.model_name,
@@ -139,12 +172,21 @@ class FineTune:
             torch_dtype=torch.float16,
             device_map=self.config.device_map,
         )
-        model = PeftModel.from_pretrained(base_model, os.path.join("artifacts/model_trainer/final_model"),self.new_model)
+        model = PeftModel.from_pretrained(base_model, os.path.join("artifacts/model_trainer/final_model",self.new_model))
         model = model.merge_and_unload()
+
+        input()
 
         # Reload tokenizer to save it
         tokenizer = AutoTokenizer.from_pretrained(self.model_name, trust_remote_code=True)
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.padding_side = "right"
+        logger.info(f">>>>>> Saving Trained Model Ended <<<<<<")
+        input()
+
+        logger.info(f">>>>>> Pushing Model to HuggingFace Started<<<<<<")
+        self.push_to_hub(model,tokenizer,auth_token="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",new_model_name=self.new_model,namespace="dherya")
+        logger.info(f">>>>>> Pushing Model to HuggingFace  Ended <<<<<<")
+        input()
 
         
