@@ -25,6 +25,7 @@ class FineTune:
         self.dataset_name = finetune_req.dataset_name
         self.new_model = finetune_req.new_model
         self.config = finetune_req.config
+        self.hf_token = finetune_req.hugging_face_api
         
     def load_bits_and_bytes_config(self):
         compute_dtype = getattr(torch, self.config.bnb_4bit_compute_dtype)
@@ -185,7 +186,7 @@ class FineTune:
         input()
 
         logger.info(f">>>>>> Pushing Model to HuggingFace Started<<<<<<")
-        self.push_to_hub(model,tokenizer,auth_token="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",new_model_name=self.new_model,namespace="dherya")
+        self.push_to_hub(model,tokenizer,auth_token=self.hf_token,new_model_name=self.new_model,namespace="dherya")
         logger.info(f">>>>>> Pushing Model to HuggingFace  Ended <<<<<<")
         input()
 

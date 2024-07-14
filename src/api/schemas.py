@@ -44,5 +44,6 @@ class TrainingRequest(BaseModel):
     model_name: str
     dataset_name: str
     new_model: str
+    hugging_face_api: str
     config: Optional[TrainingConfig] = None
 
