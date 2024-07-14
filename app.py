@@ -6,7 +6,7 @@ from fastapi.responses import Response
 from starlette.responses import RedirectResponse
 from src.api.schemas import TrainingRequest
 from src.api.schemas import TrainingConfig
-# from src.features.finetune.finetune import FineTune
+from src.features.finetune.finetune import FineTune
 
 # Place holder text and api object
 app = FastAPI()
@@ -18,8 +18,8 @@ async def predict_route(request: TrainingRequest):
         if not request_data.config:
             request_data.config = TrainingConfig()
 
-        print("request_data",request_data)
-        # finetune_pipe = FineTune(finetune_req = request_data)
+        finetune_pipe = FineTune(finetune_req = request_data)
+        finetune_pipe.train()
 
     except Exception as e:
         raise e
