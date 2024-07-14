@@ -186,7 +186,7 @@ class FineTune:
         input()
 
         logger.info(f">>>>>> Pushing Model to HuggingFace Started<<<<<<")
-        self.push_to_hub(model,tokenizer,auth_token=self.hf_token,new_model_name=self.new_model,namespace="dherya")
+        self.push_to_hub(model,tokenizer,auth_token="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",new_model_name=self.new_model,namespace="dherya")
         logger.info(f">>>>>> Pushing Model to HuggingFace  Ended <<<<<<")
         input()
 
