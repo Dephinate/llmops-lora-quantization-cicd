@@ -48,17 +48,18 @@ class TrainingRequest(BaseModel):
     config: Optional[TrainingConfig] = None
 
 class QuantizationConfig(BaseModel):
-    load_in_4bit: bool = True
-    bnb_4bit_quant_type: str = "float16"
-    bnb_4bit_compute_dtype: str = "nf4"
-    bnb_4bit_use_double_quant: bool = False
+    use_4bit: bool = True
+    bnb_4bit_compute_dtype: str = "float16"
+    bnb_4bit_quant_type: str = "nf4"
+    use_nested_quant: bool = False
 
+class ModelRequest(BaseModel):
+    model_name: str
+    name_space: str
+    qunatization_config: Optional[QuantizationConfig] = None
 
 class ChatRequest(BaseModel):
     query: str
-    model_name: str
-    name_space: str
-    qunatization_config: Optional[QuantizationConfig]
 
 
 
