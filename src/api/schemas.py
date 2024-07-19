@@ -42,6 +42,7 @@ class TrainingConfig(BaseModel):
 
 class TrainingRequest(BaseModel):
     model_name: str
+    name_space: str
     dataset_name: str
     new_model: str
     hugging_face_api: str
@@ -56,6 +57,7 @@ class QuantizationConfig(BaseModel):
 class ModelRequest(BaseModel):
     model_name: str
     name_space: str
+    token: Optional[str] = None
     qunatization_config: Optional[QuantizationConfig] = None
 
 class ChatRequest(BaseModel):
