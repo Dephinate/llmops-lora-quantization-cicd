@@ -14,7 +14,6 @@ from src.features.chat.inference import Model
 from src.features.chat.inference import Inference
 from fastapi import FastAPI
 
-
 # Place holder text and api object
 app = FastAPI()
 
