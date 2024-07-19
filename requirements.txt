@@ -7,3 +7,5 @@ datasets
 pydantic
 fastapi
 uvicorn
+pyngrok
+xformers
