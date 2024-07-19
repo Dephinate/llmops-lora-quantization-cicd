@@ -13,9 +13,12 @@ from src.features.finetune.finetune import FineTune
 from src.features.chat.inference import Model
 from src.features.chat.inference import Inference
 from fastapi import FastAPI
-
 # Place holder text and api object
 app = FastAPI()
+
+@app.get("/", tags=["authentication"])
+async def index():
+    return RedirectResponse(url="/docs")
 
 @app.post("/lora_finetune")
 async def finetune(request: TrainingRequest):
@@ -66,11 +69,12 @@ async def chat(request: ChatRequest):
 
 
 # Run the FastAPI app
-import uvicorn
-from pyngrok import ngrok
+# from pyngrok import ngrok
 
 # def run_app():
-uvicorn.run(app, host="0.0.0.0", port=8000)
+if __name__=="__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8080)
+
     # uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
 
 # Start the FastAPI app in the background
