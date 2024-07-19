@@ -68,7 +68,7 @@ async def chat(request: ChatRequest):
         raise e 
 
 
-# Run the FastAPI app
+# Run the FastAPI app 
 # from pyngrok import ngrok
 
 # def run_app():
