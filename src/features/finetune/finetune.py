@@ -15,17 +15,23 @@ from trl import SFTTrainer
 from src.api.schemas import TrainingRequest
 from src.logging import logger
 
-
-
 class FineTune:
     def __init__(self,
                  finetune_req:TrainingRequest) -> None:
         logger.info(f">>>>>> FineTuner Initializing with {finetune_req} <<<<<<")
+        print("FineTuneReq: ", finetune_req)
         self.model_name = finetune_req.model_name
+        self.name_space = finetune_req.name_space
         self.dataset_name = finetune_req.dataset_name
         self.new_model = finetune_req.new_model
         self.config = finetune_req.config
         self.hf_token = finetune_req.hugging_face_api
+        print("model_name: ",self.model_name)
+        print("name_space: ",self.name_space)
+        print("dataset_name: ",self.dataset_name)
+        print("new_model: ",self.new_model)
+        print("config: ",self.config)
+        print("hf_token: ",self.hf_token)
         
     def load_bits_and_bytes_config(self):
         compute_dtype = getattr(torch, self.config.bnb_4bit_compute_dtype)
@@ -39,7 +45,7 @@ class FineTune:
 
     def set_training_arguments(self):
         training_arguments = TrainingArguments(
-            output_dir="artifacts/model_trainer/results",
+            output_dir="./artifacts/model_trainer/results",
             num_train_epochs=self.config.num_train_epochs,
             per_device_train_batch_size=self.config.per_device_train_batch_size,
             gradient_accumulation_steps=self.config.gradient_accumulation_steps,
@@ -86,15 +92,11 @@ class FineTune:
         dataset = load_dataset(self.dataset_name, split="train")
         logger.info(f">>>>>> Stage Loading DataSet ended <<<<<<")
 
-        input()
-
         # Load tokenizer and model with QLoRA configuration
 
         logger.info(f">>>>>> Stage Load tokenizer and model with QLoRA configuration started <<<<<<")
         bnb_config,compute_dtype = self.load_bits_and_bytes_config()
         logger.info(f">>>>>> Stage Load tokenizer and model with QLoRA configuration bnb_config: {bnb_config}, compute_dtype: {compute_dtype}   ended <<<<<<")
-
-        input()
 
         # Check GPU compatibility with bfloat16
         if compute_dtype == torch.float16 and self.config.use_4bit:
@@ -103,8 +105,6 @@ class FineTune:
                 print("=" * 80)
                 print("Your GPU supports bfloat16: accelerate training with bf16=True")
                 print("=" * 80)
-
-        input()
 
         # Load base model
         logger.info(f">>>>>> Load Base Model Started <<<<<<")
@@ -122,15 +122,10 @@ class FineTune:
         tokenizer.padding_side = "right" # Fix weird overflow issue with fp16 training
         logger.info(f">>>>>> Load Base Model Ended <<<<<<")
 
-
-        input()
-
         # Load LoRA configuration
         logger.info(f">>>>>> Load LoRA configuration Started <<<<<<")
         peft_config = self.load_lora_config()
         logger.info(f">>>>>> Load LoRA configuration: {peft_config} ended <<<<<<")
-
-        input()
 
         # Set training parameters
         logger.info(f">>>>>> Set training parameters Started <<<<<<")
@@ -138,8 +133,6 @@ class FineTune:
         logger.info(f">>>>>> Set training parameters Started <<<<<<")
 
         # Set supervised fine-tuning parameters
-        input()
-
         logger.info(f">>>>>> Initialize SFTTrainer Started <<<<<<")
         trainer = SFTTrainer(
             model=model,
@@ -152,19 +145,22 @@ class FineTune:
             packing=self.config.packing,
         )
         logger.info(f">>>>>> Initialize SFTTrainer: {trainer} ended <<<<<<")
-        input()
-
-
+        
         # Train model
         logger.info(f">>>>>> Train Model Started <<<<<<")
         trainer.train()
         logger.info(f">>>>>> Train Model Ended <<<<<<")
 
-        input()
-
         # Save trained model
         logger.info(f">>>>>> Saving Trained Model Started <<<<<<")
-        trainer.model.save_pretrained(os.path.join("artifacts/model_trainer/final_model",self.new_model))
+        trainer.model.save_pretrained(os.path.join("artifacts/model_trainer/finetuned_model",self.new_model))
+        # Empty VRAM
+        del model
+        del pipe
+        del trainer
+        import gc
+        gc.collect()
+        gc.collect()
         # Reload model in FP16 and merge it with LoRA weights
         base_model = AutoModelForCausalLM.from_pretrained(
             self.model_name,
@@ -173,21 +169,18 @@ class FineTune:
             torch_dtype=torch.float16,
             device_map=self.config.device_map,
         )
-        model = PeftModel.from_pretrained(base_model, os.path.join("artifacts/model_trainer/final_model",self.new_model))
+        model = PeftModel.from_pretrained(base_model, os.path.join("artifacts/model_trainer/finetuned_model",self.new_model))
         model = model.merge_and_unload()
-
-        input()
 
         # Reload tokenizer to save it
         tokenizer = AutoTokenizer.from_pretrained(self.model_name, trust_remote_code=True)
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.padding_side = "right"
         logger.info(f">>>>>> Saving Trained Model Ended <<<<<<")
-        input()
-
+        
         logger.info(f">>>>>> Pushing Model to HuggingFace Started<<<<<<")
-        self.push_to_hub(model,tokenizer,auth_token="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",new_model_name=self.new_model,namespace="dherya")
+        self.push_to_hub(model,tokenizer,auth_token=self.hf_token,new_model_name=self.new_model,namespace=self.name_space)
         logger.info(f">>>>>> Pushing Model to HuggingFace  Ended <<<<<<")
-        input()
+        
 
         
